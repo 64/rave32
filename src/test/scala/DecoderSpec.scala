@@ -10,7 +10,9 @@ import chisel3._
 import chiseltest._
 
 class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
-  "Decoder" should "not decode MUL" in {
+  behavior of "Decoder"
+
+  it should "not decode MUL" in {
     test(new Decoder) { c =>
       c.io.inst.poke(0.U)
       check(c, "mul x1, x2, x3", AluOp.NONE, 0, 0, 0, 0, true)

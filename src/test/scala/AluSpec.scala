@@ -24,7 +24,9 @@ class AluSpec extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
-  "ALU" should "add" in {
+  behavior of "ALU"
+
+  it should "add" in {
     test(new Alu) { c => checkAluOp(c, AluOp.ADD, -20 until 20, (x, y) => x + y) }
   }
 
