@@ -41,32 +41,38 @@ class Memory(words: Int = 8)
   }
 }
 
-class MemorySim(init: List[Int] = List(), numWords: Int = 8) extends Module {
+class MemorySim(init: List[Int] = List(), var numWords: Int = 0) extends Module {
   val io = IO(new Bundle {
     val loaded = Output(Bool())
     val mem = Flipped(new MemoryPort)
   })
 
+  if (numWords == 0) {
+    if (init.size == 0) {
+      numWords = 8
+    } else {
+      numWords = init.size
+    }
+  }
+
   val mem = Module(new Memory(numWords))
-  val initRom = VecInit(
-    init.map(x => x.U).toSeq ++ Seq.fill(numWords - init.size)(0.U)
-  )
-
   mem.io <> io.mem
-  // mem.io.readAddr := io.mem.readAddr
-  // io.mem.readData := mem.io.readData
-  // mem.io.writeAddr := io.mem.writeAddr
-  // mem.io.writeData := io.mem.writeData
 
-  val addr = RegInit(0.U(32.W))
-  when(addr < numWords.U) {
-    io.loaded := false.B
-    mem.io.readAddr.valid := false.B
-    mem.io.writeAddr.valid := true.B
-    mem.io.writeAddr.bits := addr
-    mem.io.writeData := initRom(addr)
-    addr := addr + 1.U
-  }.otherwise {
+  if (init.size != 0) {
+    val initRom = VecInit(init.map(x => x.S(32.W).asUInt()).toSeq)
+
+    val addr = RegInit(0.U(32.W))
+    when(addr < init.size.U) {
+      io.loaded := false.B
+      mem.io.readAddr.valid := false.B
+      mem.io.writeAddr.valid := true.B
+      mem.io.writeAddr.bits := addr
+      mem.io.writeData := initRom(addr)
+      addr := addr + 1.U
+    }.otherwise {
+      io.loaded := true.B
+    }
+  } else {
     io.loaded := true.B
   }
 }

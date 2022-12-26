@@ -15,11 +15,11 @@ class AluSpec extends AnyFlatSpec with ChiselScalatestTester {
     for (i <- range) {
       for (j <- range) {
         c.io.op.poke(op)
-        c.io.src0.poke(wrapNegatives(i).U)
-        c.io.src1.poke(wrapNegatives(j).U)
+        c.io.src1.poke(wrapNegatives(i).U)
+        c.io.src2.poke(wrapNegatives(j).U)
 
         var out = wrapNegatives(model(i, j))
-        c.io.dst.expect(out.U, s"operands were $i and $j")
+        c.io.out.expect(out.U, s"operands were $i and $j")
       }
     }
   }

@@ -29,20 +29,8 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     }
   }
 
-  it should "read zeros after reset" in {
-    test(new MemorySim) { c =>
-      c.io.mem.writeAddr.initSource().setSourceClock(c.clock)
-      c.io.mem.readAddr.initSource().setSourceClock(c.clock)
-      waitDone(c)
-
-      for (i <- 0 until 20) {
-        pokeRead(c.io.mem, i) shouldBe 0
-      }
-    }
-  }
-
   it should "allow initialisation from a file" in {
-    test(new MemorySim(List(123, 456), 4)) { c =>
+    test(new MemorySim(List(123, 456, 0, 0))) { c =>
       c.io.mem.writeAddr.initSource().setSourceClock(c.clock)
       c.io.mem.readAddr.initSource().setSourceClock(c.clock)
       waitDone(c)
@@ -55,7 +43,7 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   }
 
   it should "read back a value written" in {
-    test(new MemorySim) { c =>
+    test(new MemorySim(List.fill(1)(0))) { c =>
       c.io.mem.writeAddr.initSource().setSourceClock(c.clock)
       c.io.mem.readAddr.initSource().setSourceClock(c.clock)
       waitDone(c)
@@ -67,7 +55,7 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   }
 
   it should "read back values written to separate addresses" in {
-    test(new MemorySim) { c =>
+    test(new MemorySim(List.fill(2)(0))) { c =>
       c.io.mem.writeAddr.initSource().setSourceClock(c.clock)
       c.io.mem.readAddr.initSource().setSourceClock(c.clock)
       waitDone(c)
@@ -82,7 +70,7 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   }
 
   it should "read back the previous value in a read/write conflict" in {
-    test(new MemorySim) { c =>
+    test(new MemorySim(List.fill(1)(0))) { c =>
       c.io.mem.writeAddr.initSource().setSourceClock(c.clock)
       c.io.mem.readAddr.initSource().setSourceClock(c.clock)
       waitDone(c)

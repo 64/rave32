@@ -23,24 +23,24 @@ object AluOp extends ChiselEnum {
 class Alu extends Module {
   val io = IO(new Bundle {
     val op = Input(AluOp())
-    val src0 = Input(UInt(32.W))
     val src1 = Input(UInt(32.W))
-    val dst = Output(UInt(32.W))
+    val src2 = Input(UInt(32.W))
+    val out = Output(UInt(32.W))
   })
 
-  io.dst := 0.U
+  io.out := 0.U
   switch(io.op) {
     is(AluOp.ADD) {
-      io.dst := io.src0 + io.src1
+      io.out := io.src1 + io.src2
     }
     is(AluOp.SUB) {
-      io.dst := io.src0 - io.src1
+      io.out := io.src1 - io.src2
     }
     is(AluOp.AND) {
-      io.dst := io.src0 & io.src1
+      io.out := io.src1 & io.src2
     }
     is(AluOp.NOT) {
-      io.dst := ~io.src0
+      io.out := ~io.src1
     }
   }
 }
