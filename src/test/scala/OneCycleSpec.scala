@@ -26,8 +26,7 @@ class OneCycleSpec
   }
 
   def peekReg(c: OneCycleSim, reg: Int): BigInt = {
-    c.test.regs.readAddr.valid.poke(true.B)
-    c.test.regs.readAddr.bits.poke(reg.U)
+    c.test.regs.readAddr.poke(reg.U)
     c.test.regs.readData.peekInt()
   }
 

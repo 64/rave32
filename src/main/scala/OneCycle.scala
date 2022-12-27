@@ -17,7 +17,7 @@ class OneCycle extends Module {
   val test = IO(new Bundle {
     val pc = Output(UInt(32.W))
     val regs = new Bundle {
-      val readAddr = Input(Valid(UInt(4.W)))
+      val readAddr = Input(UInt(3.W))
       val readData = Output(UInt(32.W))
     }
   })
@@ -31,13 +31,6 @@ class OneCycle extends Module {
   alu.io.src2 := DontCare
 
   val regFile = Module(new RegFile)
-  regFile.io.rs1.valid := false.B
-  regFile.io.rs2.valid := false.B
-  regFile.io.rd.valid := false.B
-  regFile.io.rs1.bits := 5.U
-  regFile.io.rs2.bits := DontCare
-  regFile.io.rd.bits := DontCare
-  regFile.io.rdData := DontCare
 
   regFile.test.reg := test.regs.readAddr
   test.regs.readData := regFile.test.regData
@@ -54,26 +47,16 @@ class OneCycle extends Module {
   val halted = RegNext(io.signals.halted, false.B)
   io.signals.halted := decoder.io.ctrl.exception || halted
 
-  regFile.io.rs1.valid := true.B
-  regFile.io.rs1.bits := decoder.io.ctrl.rs1
+  regFile.io.rs1 := decoder.io.ctrl.rs1
   val rs1Data = regFile.io.rs1Data
 
-  regFile.io.rs2.valid := true.B
-  regFile.io.rs2.bits := decoder.io.ctrl.rs2
+  regFile.io.rs2 := decoder.io.ctrl.rs2
   val rs2Data = regFile.io.rs2Data
 
-  val op1 = rs1Data
-  val op2 = Wire(UInt(32.W))
-  when(decoder.io.ctrl.useImm) {
-    op2 := decoder.io.ctrl.imm.asUInt()
-  }.otherwise {
-    op2 := rs2Data
-  }
+  regFile.io.rd := decoder.io.ctrl.rd
+  regFile.io.writeEnable := false.B
+  regFile.io.writeData := DontCare
 
-  alu.io.src1 := op1
-  alu.io.src2 := op2
-  alu.io.op := decoder.io.ctrl.aluOp
-  val aluResult = alu.io.out
   // printf(
   //   "rs1: %d (%d), rs2: %d (%d), rd: %d, out: %d\n",
   //   decoder.io.ctrl.rs1,
@@ -89,11 +72,23 @@ class OneCycle extends Module {
     nextPc := pc + decoder.io.ctrl.imm.asUInt()
 
     // Set link register
-    regFile.io.rd.valid := true.B
-    regFile.io.rd.bits := decoder.io.ctrl.rd
-    regFile.io.rdData := pc + 4.U
+    regFile.io.writeEnable := true.B
+    regFile.io.writeData := pc + 4.U
   }.otherwise {
     nextPc := pc + 4.U
+
+    val op1 = rs1Data
+    val op2 = Wire(UInt(32.W))
+    when(decoder.io.ctrl.useImm) {
+      op2 := decoder.io.ctrl.imm.asUInt()
+    }.otherwise {
+      op2 := rs2Data
+    }
+
+    alu.io.src1 := op1
+    alu.io.src2 := op2
+    alu.io.op := decoder.io.ctrl.aluOp
+    val aluResult = alu.io.out
 
     when(decoder.io.ctrl.isStore) {
       // mem[rs1 + offset] = rs2
@@ -104,13 +99,12 @@ class OneCycle extends Module {
       // rd = mem[rs1 + offset]
       io.dmem.readAddr.valid := true.B
       io.dmem.readAddr.bits := aluResult
-      regFile.io.rd.valid := true.B
-      regFile.io.rd.bits := decoder.io.ctrl.rd
-      regFile.io.rdData := io.dmem.readData
+      regFile.io.writeEnable := true.B
+      regFile.io.writeData := io.dmem.readData
     }.otherwise {
-      regFile.io.rd.valid := true.B
-      regFile.io.rd.bits := decoder.io.ctrl.rd
-      regFile.io.rdData := aluResult
+      // rd = rs1 `aluOp` rs2
+      regFile.io.writeEnable := true.B
+      regFile.io.writeData := aluResult
     }
   }
 
@@ -121,28 +115,25 @@ class OneCycle extends Module {
 class OneCycleSim(init: List[Int] = List()) extends Module {
   val signals = IO(Output(new CpuSignals))
 
-  val test = IO(new Bundle {
-    val loaded = Output(Bool())
-    val pc = Output(UInt(32.W))
-    val regs = new Bundle {
-      val readAddr = Input(Valid(UInt(3.W)))
-      val readData = Output(UInt(32.W))
-    }
-  })
-
   // val dmem = Module(new MemorySim(List(), 32))
   val dmem = IO(new MemoryPort)
   val imem = Module(new MemorySim(init))
   val core = Module(new OneCycle)
 
-  signals <> core.io.signals
+  val test = IO(new Bundle {
+    val loaded = Output(Bool())
+    val pc = Output(UInt(32.W))
+    val regs = new Bundle {
+      val readAddr = Input(UInt(3.W))
+      val readData = Output(UInt(32.W))
+    }
+  })
   test.loaded := imem.io.loaded
   test.pc := core.test.pc
   test.regs <> core.test.regs
 
+  signals <> core.io.signals
   imem.io.mem <> core.io.imem
-
-  // dmem.io.mem <> core.io.dmem
   dmem <> core.io.dmem
 
   core.reset := !test.loaded
