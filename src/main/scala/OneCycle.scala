@@ -32,12 +32,12 @@ class OneCycle extends Module {
 
   val pc = RegInit(0.U(32.W))
   test.pc := pc
-  io.imem.readAddr.valid := true.B
-  io.imem.readAddr.bits := pc
+  io.imem.addr := pc
+  io.imem.memOp := MemOp.LW
 
   val decoder = Module(new Decoder)
   decoder.io.inst := io.imem.readData
-  // printf("read instruction 0x%x while %d\n", decoder.io.inst, io.mem.readAddr.valid)
+  io.dmem.memOp := decoder.io.ctrl.memOp
 
   val alu = Module(new Alu)
   alu.io.op := decoder.io.ctrl.aluOp
@@ -54,16 +54,6 @@ class OneCycle extends Module {
   regFile.io.rd := decoder.io.ctrl.rd
   regFile.io.writeEnable := false.B
   regFile.io.writeData := DontCare
-
-  // printf(
-  //   "rs1: %d (%d), rs2: %d (%d), rd: %d, out: %d\n",
-  //   decoder.io.ctrl.rs1,
-  //   op1,
-  //   decoder.io.ctrl.rs2,
-  //   op2,
-  //   decoder.io.ctrl.rd,
-  //   aluResult,
-  // )
 
   val nextPc = Wire(UInt(32.W))
   when(decoder.io.ctrl.isJump) {
@@ -86,32 +76,16 @@ class OneCycle extends Module {
     }
     val aluResult = alu.io.out
 
-    when(decoder.io.ctrl.isStore) {
+    when(decoder.io.ctrl.memOp.isOneOf(Seq(MemOp.SB, MemOp.SH, MemOp.SW))) {
       // mem[rs1 + offset] = rs2
-      io.dmem.writeAddr.valid := true.B
-      io.dmem.writeAddr.bits := aluResult
-      io.dmem.writeSize := decoder.io.ctrl.accessSize
+      io.dmem.addr := aluResult
       io.dmem.writeData := rs2Data
-    }.elsewhen(decoder.io.ctrl.isLoad) {
+    }.elsewhen(decoder.io.ctrl.memOp.isOneOf(Seq(MemOp.LB, MemOp.LH, MemOp.LW))) {
       // rd = mem[rs1 + offset]
-      io.dmem.readAddr.valid := true.B
-      io.dmem.readAddr.bits := Cat(aluResult(31, 2), 0.U(2.W))
-
-      val shiftedData = io.dmem.readData >> (aluResult(1, 0) << 3)
-      val sextData = Wire(UInt(32.W))
-      when(decoder.io.ctrl.accessSize === 1.U) {
-        sextData := shiftedData(7, 0).asSInt.pad(32).asUInt
-      }.elsewhen(decoder.io.ctrl.accessSize === 2.U) {
-        sextData := shiftedData(15, 0).asSInt.pad(32).asUInt
-      }.elsewhen(decoder.io.ctrl.accessSize === 4.U) {
-        sextData := io.dmem.readData
-      }.otherwise {
-        sextData := DontCare
-        assert(false.B, "invalid load size given: %d", decoder.io.ctrl.accessSize)
-      }
+      io.dmem.addr := aluResult
 
       regFile.io.writeEnable := true.B
-      regFile.io.writeData := sextData
+      regFile.io.writeData := io.dmem.readData
     }.otherwise {
       // rd = rs1 `aluOp` rs2
       regFile.io.writeEnable := true.B

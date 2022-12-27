@@ -2,25 +2,31 @@ package mrv
 
 import chisel3._
 import chisel3.util._
+import chisel3.experimental.ChiselEnum
+
+object MemOp extends ChiselEnum {
+  val NONE = Value
+  val LB = Value
+  val LH = Value
+  val LW = Value
+  val SB = Value
+  val SH = Value
+  val SW = Value
+}
 
 class MemoryPort extends Bundle {
-  val readAddr = Output(Valid(UInt(32.W)))
+  val addr = Output(UInt(32.W))
   val readData = Input(UInt(32.W))
-
-  val writeAddr = Output(Valid(UInt(32.W)))
   val writeData = Output(UInt(32.W))
-  val writeSize = Output(UInt(3.W)) // 1, 2 or 4
+  val memOp = Output(MemOp())
 }
 
 object MemoryPort {
   def default: MemoryPort = {
     val wire = Wire(new MemoryPort)
+    wire.addr := DontCare
     wire.writeData := DontCare
-    wire.readAddr := DontCare
-    wire.writeAddr := DontCare
-    wire.writeSize := DontCare
-    wire.readAddr.valid := false.B
-    wire.writeAddr.valid := false.B
+    wire.memOp := MemOp.NONE
     wire
   }
 }
@@ -30,32 +36,51 @@ class Memory(words: Int = 8) extends Module {
 
   private val mem = Mem(words, Vec(4, UInt(8.W)))
 
-  io.readData := 0.U
-  when(io.readAddr.valid) {
-    val addr = io.readAddr.bits
-    assert(addr(1, 0) === 0.U, "misaligned read address: %d", addr)
-    val data = mem.read(addr >> 2)
-    io.readData := Cat(data(3), data(2), data(1), data(0))
-  }
-
-  when(io.writeAddr.valid) {
-    val addr = io.writeAddr.bits >> 2
-    val off = io.writeAddr.bits(1, 0)
-    val shifted = io.writeData << (off << 3)
-    val split =
-      VecInit(shifted(7, 0), shifted(15, 8), shifted(23, 16), shifted(31, 24))
-
-    when(io.writeSize === 1.U) {
-      val mask = UIntToOH(off)
-      mem.write(addr, split, mask.asBools)
-    }.elsewhen(io.writeSize === 2.U) {
-      val mask = Mux(off(1), "b0011".U, "b1100".U)
-      mem.write(addr, split, mask.asBools)
-    }.elsewhen(io.writeSize === 4.U) {
-      mem.write(addr, split)
-    }.otherwise {
-      assert(false.B, "invalid writeSize given: %d", io.writeSize)
-    }
+  io.readData := 0.U // TODO
+  when(io.memOp.isOneOf(Seq(MemOp.SB, MemOp.SH, MemOp.SW))) {
+    val lookup = MuxLookup(
+      io.memOp.asUInt,
+      0.U,
+      Array(
+        MemOp.SB.asUInt -> "b0001".U,
+        MemOp.SH.asUInt -> "b0011".U,
+        MemOp.SW.asUInt -> "b1111".U,
+      ).toIndexedSeq,
+    )
+    val off = io.addr(1, 0)
+    val mask = lookup.rotateLeft(off)
+    val shifted = MuxLookup(
+      off,
+      io.writeData.asTypeOf(Vec(4, UInt(8.W))),
+      Seq(
+        1.U -> VecInit(DontCare, io.writeData(7, 0), DontCare, DontCare),
+        2.U -> VecInit(
+          DontCare,
+          DontCare,
+          io.writeData(7, 0),
+          io.writeData(15, 8),
+        ),
+        3.U -> VecInit(DontCare, DontCare, DontCare, io.writeData(7, 0)),
+      ),
+    )
+    mem.write(
+      io.addr >> 2,
+      shifted.asTypeOf(Vec(4, UInt(8.W))),
+      // shifted, // TODO: Why does this not work?
+      mask.asBools,
+    )
+  }.elsewhen(io.memOp.isOneOf(Seq(MemOp.LB, MemOp.LH, MemOp.LW))) {
+    // Read (or NONE)
+    val rawData = mem.read(io.addr >> 2).asUInt
+    val data = rawData >> (io.addr(1, 0) << 3)
+    io.readData := MuxLookup(
+      io.memOp.asUInt,
+      data,
+      Seq(
+        MemOp.LB.asUInt -> data(7, 0).asSInt.pad(32).asUInt,
+        MemOp.LH.asUInt -> data(15, 0).asSInt.pad(32).asUInt,
+      ),
+    )
   }
 }
 
@@ -83,11 +108,9 @@ class MemorySim(init: List[Int] = List(), var numWords: Int = 0)
     val addr = RegInit(0.U(32.W))
     when(addr < init.size.U) {
       io.loaded := false.B
-      mem.io.readAddr.valid := false.B
-      mem.io.writeAddr.valid := true.B
-      mem.io.writeAddr.bits := addr << 2
-      mem.io.writeSize := 4.U
+      mem.io.addr := addr << 2
       mem.io.writeData := initRom(addr)
+      mem.io.memOp := MemOp.SW
       addr := addr + 1.U
     }.otherwise {
       io.loaded := true.B

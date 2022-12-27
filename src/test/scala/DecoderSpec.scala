@@ -101,7 +101,7 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe false
-    c.io.ctrl.isStore.peekBoolean() shouldBe false
+    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
@@ -121,14 +121,17 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
-    c.io.ctrl.isStore.peekBoolean() shouldBe false
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.imm.peekInt() shouldBe imm
 
-    if (accessSize != 0) {
-      c.io.ctrl.accessSize.peekInt() shouldBe accessSize
+    if (accessSize == 4) {
+      c.io.ctrl.memOp.peek() shouldBe MemOp.LW
+    } else if(accessSize == 2) {
+      c.io.ctrl.memOp.peek() shouldBe MemOp.LH
+    } else if (accessSize == 1) {
+      c.io.ctrl.memOp.peek() shouldBe MemOp.LB
     }
   }
 
@@ -143,7 +146,7 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe true
     c.io.ctrl.useImm.peekBoolean() shouldBe true
-    c.io.ctrl.isStore.peekBoolean() shouldBe false
+    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.imm.peekInt() shouldBe imm
@@ -156,17 +159,23 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       rs1: Int,
       rs2: Int,
       offset: Int,
-      storeSize: Int,
+      accessSize: Int,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
-    c.io.ctrl.isStore.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.rs2.peekInt() shouldBe rs2
     c.io.ctrl.imm.peekInt() shouldBe offset
-    c.io.ctrl.accessSize.peekInt() shouldBe storeSize
+
+    if (accessSize == 4) {
+      c.io.ctrl.memOp.peek() shouldBe MemOp.SW
+    } else if(accessSize == 2) {
+      c.io.ctrl.memOp.peek() shouldBe MemOp.SH
+    } else if (accessSize == 1) {
+      c.io.ctrl.memOp.peek() shouldBe MemOp.SB
+    }
   }
 }
