@@ -10,7 +10,7 @@ class MemoryPort extends Bundle {
   val writeAddr = Output(Valid(UInt(32.W)))
   val writeData = Output(UInt(32.W))
 }
-  
+
 object MemoryPort {
   def default: MemoryPort = {
     val wire = Wire(new MemoryPort)
@@ -23,8 +23,7 @@ object MemoryPort {
   }
 }
 
-class Memory(words: Int = 8)
-    extends Module {
+class Memory(words: Int = 8) extends Module {
   val io = IO(Flipped(new MemoryPort))
 
   private val mem = Mem(words, UInt(32.W))
@@ -41,7 +40,8 @@ class Memory(words: Int = 8)
   }
 }
 
-class MemorySim(init: List[Int] = List(), var numWords: Int = 0) extends Module {
+class MemorySim(init: List[Int] = List(), var numWords: Int = 0)
+    extends Module {
   val io = IO(new Bundle {
     val loaded = Output(Bool())
     val mem = Flipped(new MemoryPort)
@@ -51,7 +51,7 @@ class MemorySim(init: List[Int] = List(), var numWords: Int = 0) extends Module 
     if (init.size == 0) {
       numWords = 8
     } else {
-      numWords = init.size
+      numWords = init.size + 1
     }
   }
 
@@ -59,7 +59,7 @@ class MemorySim(init: List[Int] = List(), var numWords: Int = 0) extends Module 
   mem.io <> io.mem
 
   if (init.size != 0) {
-    val initRom = VecInit(init.map(x => x.S(32.W).asUInt()).toSeq)
+    val initRom = VecInit(init.map(x => x.S(32.W).asUInt()).toSeq ++ Seq(0.U))
 
     val addr = RegInit(0.U(32.W))
     when(addr < init.size.U) {

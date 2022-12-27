@@ -24,7 +24,7 @@ class OneCycleSpec
   def assemble(in: String): Int = {
     Integer.parseUnsignedInt(RISCVAssembler.binOutput(in), 2)
   }
-  
+
   def peekReg(c: OneCycleSim, reg: Int): BigInt = {
     c.test.regs.readAddr.valid.poke(true.B)
     c.test.regs.readAddr.bits.poke(reg.U)
@@ -59,8 +59,8 @@ class OneCycleSpec
   it should "advance pc" in {
     test(
       new OneCycleSim(
-        List(assemble("add x1, x2, x3"), assemble("sub x1, x2, x3"), 0)
-      )
+        List(assemble("add x1, x2, x3"), assemble("sub x1, x2, x3"), 0),
+      ),
     ).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
       waitLoaded(c)
       c.signals.halted.peekBoolean() shouldBe false
@@ -75,7 +75,7 @@ class OneCycleSpec
 
   it should "handle jumps" in {
     test(
-      new OneCycleSim(List(assemble("add x1, x2, x3"), assemble("jal x0, -4")))
+      new OneCycleSim(List(assemble("add x3, x0, x0"), assemble("jal x1, -4"))),
     ) { c =>
       waitLoaded(c)
       c.signals.halted.peekBoolean() shouldBe false
@@ -85,12 +85,13 @@ class OneCycleSpec
       c.test.pc.peekInt() shouldBe 4
       c.clock.step()
       c.test.pc.peekInt() shouldBe 0
+      peekReg(c, 1) shouldBe 8
     }
   }
 
   it should "handle writes to registers" in {
     test(
-      new OneCycleSim(List(assemble("addi x1, x0, 5")))
+      new OneCycleSim(List(assemble("addi x1, x0, 5"))),
     ) { c =>
       waitLoaded(c)
       c.clock.step()
@@ -100,7 +101,9 @@ class OneCycleSpec
 
   it should "handle reads from registers" in {
     test(
-      new OneCycleSim(List(assemble("addi x1, x0, 5"), assemble("addi x2, x1, 3")))
+      new OneCycleSim(
+        List(assemble("addi x1, x0, 5"), assemble("addi x2, x1, 3")),
+      ),
     ) { c =>
       waitLoaded(c)
       c.clock.step()
@@ -112,13 +115,54 @@ class OneCycleSpec
 
   it should "handle reads and writes to the same register" in {
     test(
-      new OneCycleSim(List(assemble("addi x1, x0, 3"), assemble("addi x1, x1, 7")))
+      new OneCycleSim(
+        List(assemble("addi x1, x0, 3"), assemble("addi x1, x1, 7")),
+      ),
     ) { c =>
       waitLoaded(c)
       c.clock.step()
       peekReg(c, 1) shouldBe 3
       c.clock.step()
       peekReg(c, 1) shouldBe 10
+    }
+  }
+
+  it should "handle writes to memory" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("addi x1, x0, 5"),
+          assemble("sw x1, 9(x0)"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.clock.step()
+      peekReg(c, 1) shouldBe 5
+      c.dmem.writeAddr.valid.peekBoolean() shouldBe true
+      c.dmem.writeAddr.bits.peekInt() shouldBe 9
+      c.dmem.writeData.peekInt() shouldBe 5
+    }
+  }
+
+  it should "handle reads from memory" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("addi x1, x0, 5"),
+          assemble("sw x1, 16(x0)"),
+          assemble("lw x2, 11(x1)"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.clock.step()
+      c.clock.step()
+      c.dmem.readAddr.valid.peekBoolean() shouldBe true
+      c.dmem.readAddr.bits.peekInt() shouldBe 16
+      c.dmem.readData.poke(5)
+      c.clock.step()
+      peekReg(c, 2) shouldBe 5
     }
   }
 }

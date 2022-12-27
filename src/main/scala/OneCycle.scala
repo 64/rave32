@@ -54,35 +54,65 @@ class OneCycle extends Module {
   val halted = RegNext(io.signals.halted, false.B)
   io.signals.halted := decoder.io.ctrl.exception || halted
 
-  val nextPc = WireInit(0.U(32.W))
-  when (decoder.io.ctrl.jump) {
-    nextPc := pc + decoder.io.ctrl.imm.asUInt()
+  regFile.io.rs1.valid := true.B
+  regFile.io.rs1.bits := decoder.io.ctrl.rs1
+  val rs1Data = regFile.io.rs1Data
+
+  regFile.io.rs2.valid := true.B
+  regFile.io.rs2.bits := decoder.io.ctrl.rs2
+  val rs2Data = regFile.io.rs2Data
+
+  val op1 = rs1Data
+  val op2 = Wire(UInt(32.W))
+  when(decoder.io.ctrl.useImm) {
+    op2 := decoder.io.ctrl.imm.asUInt()
   }.otherwise {
-    regFile.io.rs1.valid := true.B
-    regFile.io.rs1.bits := decoder.io.ctrl.rs1
-    val op1 = regFile.io.rs1Data
-
-    val op2 = Wire(UInt(32.W))
-    when (decoder.io.ctrl.useImm) {
-      op2 := decoder.io.ctrl.imm.asUInt()
-    }.otherwise {
-      regFile.io.rs2.valid := true.B
-      regFile.io.rs2.bits := decoder.io.ctrl.rs2
-      op2 := regFile.io.rs2Data
-    }
-
-    alu.io.src1 := op1
-    alu.io.src2 := op2
-    alu.io.op := decoder.io.ctrl.aluOp
-    val result = alu.io.out
-    // printf("rs1: %d (%d), rs2: %d (%d), rd: %d, out: %d\n", decoder.io.ctrl.rs1, op1, decoder.io.ctrl.rs2, op2, decoder.io.ctrl.rd, result)
-
-    regFile.io.rd.valid := true.B
-    regFile.io.rd.bits := decoder.io.ctrl.rd
-    regFile.io.rdData := result
-    nextPc := pc + 4.U
+    op2 := rs2Data
   }
 
+  alu.io.src1 := op1
+  alu.io.src2 := op2
+  alu.io.op := decoder.io.ctrl.aluOp
+  val aluResult = alu.io.out
+  // printf(
+  //   "rs1: %d (%d), rs2: %d (%d), rd: %d, out: %d\n",
+  //   decoder.io.ctrl.rs1,
+  //   op1,
+  //   decoder.io.ctrl.rs2,
+  //   op2,
+  //   decoder.io.ctrl.rd,
+  //   aluResult,
+  // )
+
+  val nextPc = WireInit(0.U(32.W))
+  when(decoder.io.ctrl.isJump) {
+    nextPc := pc + decoder.io.ctrl.imm.asUInt()
+
+    // Set link register
+    regFile.io.rd.valid := true.B
+    regFile.io.rd.bits := decoder.io.ctrl.rd
+    regFile.io.rdData := pc + 4.U
+  }.otherwise {
+    nextPc := pc + 4.U
+
+    when(decoder.io.ctrl.isStore) {
+      // mem[rs1 + offset] = rs2
+      io.dmem.writeAddr.valid := true.B
+      io.dmem.writeAddr.bits := aluResult
+      io.dmem.writeData := rs2Data
+    }.elsewhen(decoder.io.ctrl.isLoad) {
+      // rd = mem[rs1 + offset]
+      io.dmem.readAddr.valid := true.B
+      io.dmem.readAddr.bits := aluResult
+      regFile.io.rd.valid := true.B
+      regFile.io.rd.bits := decoder.io.ctrl.rd
+      regFile.io.rdData := io.dmem.readData
+    }.otherwise {
+      regFile.io.rd.valid := true.B
+      regFile.io.rd.bits := decoder.io.ctrl.rd
+      regFile.io.rdData := aluResult
+    }
+  }
 
   pc := nextPc
   test.pc := pc
@@ -95,13 +125,14 @@ class OneCycleSim(init: List[Int] = List()) extends Module {
     val loaded = Output(Bool())
     val pc = Output(UInt(32.W))
     val regs = new Bundle {
-      val readAddr = Input(Valid(UInt(4.W)))
+      val readAddr = Input(Valid(UInt(3.W)))
       val readData = Output(UInt(32.W))
     }
   })
 
+  // val dmem = Module(new MemorySim(List(), 32))
+  val dmem = IO(new MemoryPort)
   val imem = Module(new MemorySim(init))
-  val dmem = Module(new MemorySim(List(), 32))
   val core = Module(new OneCycle)
 
   signals <> core.io.signals
@@ -110,7 +141,9 @@ class OneCycleSim(init: List[Int] = List()) extends Module {
   test.regs <> core.test.regs
 
   imem.io.mem <> core.io.imem
-  dmem.io.mem <> core.io.dmem
+
+  // dmem.io.mem <> core.io.dmem
+  dmem <> core.io.dmem
 
   core.reset := !test.loaded
 }

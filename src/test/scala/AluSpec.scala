@@ -8,9 +8,15 @@ import chiseltest._
 
 class AluSpec extends AnyFlatSpec with ChiselScalatestTester {
 
-  def checkAluOp(c: Alu, op: AluOp.Type, range: Range, model: (Long, Long) => Long) = {
+  def checkAluOp(
+      c: Alu,
+      op: AluOp.Type,
+      range: Range,
+      model: (Long, Long) => Long,
+  ) = {
     def reverse(x: Long): Long = scala.math.pow(2, 32).toLong - x
-    def wrapNegatives(x: Long): Long = if (x < 0) { reverse(x.abs) } else { x }
+    def wrapNegatives(x: Long): Long = if (x < 0) { reverse(x.abs) }
+    else { x }
 
     for (i <- range) {
       for (j <- range) {
@@ -27,11 +33,15 @@ class AluSpec extends AnyFlatSpec with ChiselScalatestTester {
   behavior of "ALU"
 
   it should "add" in {
-    test(new Alu) { c => checkAluOp(c, AluOp.ADD, -20 until 20, (x, y) => x + y) }
+    test(new Alu) { c =>
+      checkAluOp(c, AluOp.ADD, -20 until 20, (x, y) => x + y)
+    }
   }
 
   it should "subtract" in {
-    test(new Alu) { c => checkAluOp(c, AluOp.SUB, -20 until 20, (x, y) => x - y) }
+    test(new Alu) { c =>
+      checkAluOp(c, AluOp.SUB, -20 until 20, (x, y) => x - y)
+    }
   }
 
   it should "and" in {

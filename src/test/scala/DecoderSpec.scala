@@ -49,6 +49,18 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     }
   }
 
+  it should "decode LW" in {
+    test(new Decoder) { c =>
+      checkIType(c, "lw x1, 124(x2)", AluOp.ADD, 1, 2, 124)
+    }
+  }
+
+  it should "decode SW" in {
+    test(new Decoder) { c =>
+      checkSType(c, "sw x1, 124(x2)", AluOp.ADD, 2, 1, 124)
+    }
+  }
+
   def assemble(in: String): UInt = {
     ("b" + RISCVAssembler.binOutput(in)).U
   }
@@ -59,15 +71,17 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       aluOp: AluOp.Type,
       rd: Int,
       rs1: Int,
-      rs2: Int
+      rs2: Int,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
+    c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.useImm.peekBoolean() shouldBe false
+    c.io.ctrl.isStore.peekBoolean() shouldBe false
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.rs2.peekInt() shouldBe rs2
-    c.io.ctrl.useImm.peekBoolean() shouldBe false
   }
 
   def checkIType(
@@ -76,15 +90,17 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       aluOp: AluOp.Type,
       rd: Int,
       rs1: Int,
-      imm: Int
+      imm: Int,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
+    c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.useImm.peekBoolean() shouldBe true
+    c.io.ctrl.isStore.peekBoolean() shouldBe false
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.imm.peekInt() shouldBe imm
-    c.io.ctrl.useImm.peekBoolean() shouldBe true
   }
 
   def checkJType(
@@ -92,14 +108,34 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       inst: String,
       aluOp: AluOp.Type,
       rd: Int,
-      imm: Int
+      imm: Int,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.jump.peekBoolean() shouldBe true
+    c.io.ctrl.isJump.peekBoolean() shouldBe true
+    c.io.ctrl.useImm.peekBoolean() shouldBe true
+    c.io.ctrl.isStore.peekBoolean() shouldBe false
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.imm.peekInt() shouldBe imm
+  }
+
+  def checkSType(
+      c: Decoder,
+      inst: String,
+      aluOp: AluOp.Type,
+      rs1: Int,
+      rs2: Int,
+      offset: Int,
+  ) = {
+    c.io.inst.poke(assemble(inst))
+    c.io.ctrl.exception.peekBoolean() shouldBe false
+    c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
+    c.io.ctrl.isStore.peekBoolean() shouldBe true
+    c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.rs1.peekInt() shouldBe rs1
+    c.io.ctrl.rs2.peekInt() shouldBe rs2
+    c.io.ctrl.imm.peekInt() shouldBe offset
   }
 }
