@@ -25,11 +25,6 @@ class OneCycle extends Module {
   io.imem <> MemoryPort.default
   io.dmem <> MemoryPort.default
 
-  val alu = Module(new Alu)
-  alu.io.op := AluOp.NONE
-  alu.io.src1 := DontCare
-  alu.io.src2 := DontCare
-
   val regFile = Module(new RegFile)
 
   regFile.test.reg := test.regs.readAddr
@@ -38,11 +33,14 @@ class OneCycle extends Module {
   val pc = RegInit(0.U(32.W))
   test.pc := pc
   io.imem.readAddr.valid := true.B
-  io.imem.readAddr.bits := pc >> 2
+  io.imem.readAddr.bits := pc
 
   val decoder = Module(new Decoder)
   decoder.io.inst := io.imem.readData
   // printf("read instruction 0x%x while %d\n", decoder.io.inst, io.mem.readAddr.valid)
+
+  val alu = Module(new Alu)
+  alu.io.op := decoder.io.ctrl.aluOp
 
   val halted = RegNext(io.signals.halted, false.B)
   io.signals.halted := decoder.io.ctrl.exception || halted
@@ -67,9 +65,12 @@ class OneCycle extends Module {
   //   aluResult,
   // )
 
-  val nextPc = WireInit(0.U(32.W))
+  val nextPc = Wire(UInt(32.W))
   when(decoder.io.ctrl.isJump) {
-    nextPc := pc + decoder.io.ctrl.imm.asUInt()
+    // Jump to pc + imm
+    alu.io.src1 := pc
+    alu.io.src2 := decoder.io.ctrl.imm.asUInt()
+    nextPc := alu.io.out
 
     // Set link register
     regFile.io.writeEnable := true.B
@@ -77,30 +78,40 @@ class OneCycle extends Module {
   }.otherwise {
     nextPc := pc + 4.U
 
-    val op1 = rs1Data
-    val op2 = Wire(UInt(32.W))
+    alu.io.src1 := rs1Data
     when(decoder.io.ctrl.useImm) {
-      op2 := decoder.io.ctrl.imm.asUInt()
+      alu.io.src2 := decoder.io.ctrl.imm.asUInt()
     }.otherwise {
-      op2 := rs2Data
+      alu.io.src2 := rs2Data
     }
-
-    alu.io.src1 := op1
-    alu.io.src2 := op2
-    alu.io.op := decoder.io.ctrl.aluOp
     val aluResult = alu.io.out
 
     when(decoder.io.ctrl.isStore) {
       // mem[rs1 + offset] = rs2
       io.dmem.writeAddr.valid := true.B
       io.dmem.writeAddr.bits := aluResult
+      io.dmem.writeSize := decoder.io.ctrl.accessSize
       io.dmem.writeData := rs2Data
     }.elsewhen(decoder.io.ctrl.isLoad) {
       // rd = mem[rs1 + offset]
       io.dmem.readAddr.valid := true.B
-      io.dmem.readAddr.bits := aluResult
+      io.dmem.readAddr.bits := Cat(aluResult(31, 2), 0.U(2.W))
+
+      val shiftedData = io.dmem.readData >> (aluResult(1, 0) << 3)
+      val sextData = Wire(UInt(32.W))
+      when(decoder.io.ctrl.accessSize === 1.U) {
+        sextData := shiftedData(7, 0).asSInt.pad(32).asUInt
+      }.elsewhen(decoder.io.ctrl.accessSize === 2.U) {
+        sextData := shiftedData(15, 0).asSInt.pad(32).asUInt
+      }.elsewhen(decoder.io.ctrl.accessSize === 4.U) {
+        sextData := io.dmem.readData
+      }.otherwise {
+        sextData := DontCare
+        assert(false.B, "invalid load size given: %d", decoder.io.ctrl.accessSize)
+      }
+
       regFile.io.writeEnable := true.B
-      regFile.io.writeData := io.dmem.readData
+      regFile.io.writeData := sextData
     }.otherwise {
       // rd = rs1 `aluOp` rs2
       regFile.io.writeEnable := true.B
@@ -108,8 +119,11 @@ class OneCycle extends Module {
     }
   }
 
-  pc := nextPc
   test.pc := pc
+
+  when (!io.signals.halted) {
+    pc := nextPc
+  }
 }
 
 class OneCycleSim(init: List[Int] = List()) extends Module {

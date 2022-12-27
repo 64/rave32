@@ -45,19 +45,43 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
   it should "decode JAL" in {
     test(new Decoder) { c =>
-      checkJType(c, "jal x1, 124", AluOp.NONE, 1, 124)
+      checkJType(c, "jal x1, 124", AluOp.ADD, 1, 124)
+    }
+  }
+
+  it should "decode LB" in {
+    test(new Decoder) { c =>
+      checkIType(c, "lb x1, 124(x2)", AluOp.ADD, 1, 2, 124, 1)
+    }
+  }
+
+  it should "decode LH" in {
+    test(new Decoder) { c =>
+      checkIType(c, "lh x1, 124(x2)", AluOp.ADD, 1, 2, 124, 2)
     }
   }
 
   it should "decode LW" in {
     test(new Decoder) { c =>
-      checkIType(c, "lw x1, 124(x2)", AluOp.ADD, 1, 2, 124)
+      checkIType(c, "lw x1, 124(x2)", AluOp.ADD, 1, 2, 124, 4)
+    }
+  }
+
+  it should "decode SB" in {
+    test(new Decoder) { c =>
+      checkSType(c, "sb x1, 124(x2)", AluOp.ADD, 2, 1, 124, 1)
+    }
+  }
+
+  it should "decode SH" in {
+    test(new Decoder) { c =>
+      checkSType(c, "sh x1, 124(x2)", AluOp.ADD, 2, 1, 124, 2)
     }
   }
 
   it should "decode SW" in {
     test(new Decoder) { c =>
-      checkSType(c, "sw x1, 124(x2)", AluOp.ADD, 2, 1, 124)
+      checkSType(c, "sw x1, 124(x2)", AluOp.ADD, 2, 1, 124, 4)
     }
   }
 
@@ -91,6 +115,7 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       rd: Int,
       rs1: Int,
       imm: Int,
+      accessSize: Int = 0,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
@@ -101,6 +126,10 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.imm.peekInt() shouldBe imm
+
+    if (accessSize != 0) {
+      c.io.ctrl.accessSize.peekInt() shouldBe accessSize
+    }
   }
 
   def checkJType(
@@ -127,6 +156,7 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       rs1: Int,
       rs2: Int,
       offset: Int,
+      storeSize: Int,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
@@ -137,5 +167,6 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.rs2.peekInt() shouldBe rs2
     c.io.ctrl.imm.peekInt() shouldBe offset
+    c.io.ctrl.accessSize.peekInt() shouldBe storeSize
   }
 }

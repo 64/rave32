@@ -164,4 +164,35 @@ class OneCycleSpec
       peekReg(c, 2) shouldBe 5
     }
   }
+
+  it should "handle sub-word reads from memory" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("lb, x2, 8(x0)"),
+          assemble("lb, x3, 9(x0)"),
+          assemble("lh, x4, 10(x0)"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.dmem.readAddr.valid.peekBoolean() shouldBe true
+      c.dmem.readAddr.bits.peekInt() shouldBe 8
+      c.dmem.readData.poke(0x15)
+      c.clock.step()
+      peekReg(c, 2) shouldBe 0x15
+
+      c.dmem.readAddr.valid.peekBoolean() shouldBe true
+      c.dmem.readAddr.bits.peekInt() shouldBe 8
+      c.dmem.readData.poke(0xab17)
+      c.clock.step()
+      peekReg(c, 3) shouldBe 4294967211L
+
+      c.dmem.readAddr.valid.peekBoolean() shouldBe true
+      c.dmem.readAddr.bits.peekInt() shouldBe 8
+      c.dmem.readData.poke(0xcdef1234L)
+      c.clock.step()
+      peekReg(c, 4) shouldBe 4294954479L
+    }
+  }
 }
