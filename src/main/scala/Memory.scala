@@ -7,7 +7,9 @@ import chisel3.experimental.ChiselEnum
 object MemOp extends ChiselEnum {
   val NONE = Value
   val LB   = Value
+  val LBU   = Value
   val LH   = Value
+  val LHU   = Value
   val LW   = Value
   val SB   = Value
   val SH   = Value
@@ -82,7 +84,9 @@ class Memory(words: Int = 8) extends Module {
       data,
       Seq(
         MemOp.LB.asUInt -> data(7, 0).asSInt.pad(32).asUInt,
+        MemOp.LBU.asUInt -> data(7, 0).asUInt,
         MemOp.LH.asUInt -> data(15, 0).asSInt.pad(32).asUInt,
+        MemOp.LHU.asUInt -> data(15, 0).asUInt,
       ),
     )
   }

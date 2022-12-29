@@ -12,23 +12,13 @@ import scala.util.Failure
 class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   behavior of "Memory"
 
-  def pokeRead(c: MemoryPort, addr: Int, accessSize: Int = 4): BigInt = {
-    val op = accessSize match {
-      case 4 => MemOp.LW
-      case 2 => MemOp.LH
-      case 1 => MemOp.LB
-    }
+  def pokeRead(c: MemoryPort, addr: Int, op: MemOp.Type = MemOp.LW): BigInt = {
     c.memOp.poke(op)
     c.addr.poke(addr.U)
     c.readData.peekInt()
   }
 
-  def pokeWrite(c: MemoryPort, addr: Int, value: Long, accessSize: Int = 4) = {
-    val op = accessSize match {
-      case 4 => MemOp.SW
-      case 2 => MemOp.SH
-      case 1 => MemOp.SB
-    }
+  def pokeWrite(c: MemoryPort, addr: Int, value: Long, op: MemOp.Type = MemOp.SW) = {
     c.memOp.poke(op)
     c.addr.poke(addr.U)
     c.writeData.poke(value.U)
@@ -92,25 +82,25 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
       var next = 0x12
       var exp  = next
-      pokeWrite(c.io.mem, 0, next, 1)
+      pokeWrite(c.io.mem, 0, next, MemOp.SB)
       c.clock.step()
       pokeRead(c.io.mem, 0) shouldBe exp
 
       next = 0xdf
       exp |= next << 8
-      pokeWrite(c.io.mem, 1, next, 1)
+      pokeWrite(c.io.mem, 1, next, MemOp.SB)
       c.clock.step()
       pokeRead(c.io.mem, 0) shouldBe exp
 
       next = 0x57
       exp |= next << 16
-      pokeWrite(c.io.mem, 2, next, 1)
+      pokeWrite(c.io.mem, 2, next, MemOp.SB)
       c.clock.step()
       pokeRead(c.io.mem, 0) shouldBe exp
 
       next = 0x04
       exp |= next << 24
-      pokeWrite(c.io.mem, 3, next, 1)
+      pokeWrite(c.io.mem, 3, next, MemOp.SB)
       c.clock.step()
       pokeRead(c.io.mem, 0) shouldBe exp
     }
@@ -122,16 +112,22 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
       pokeWrite(c.io.mem, 0, 0xfafb0201L)
       c.clock.step()
-      pokeRead(c.io.mem, 0, 1) shouldBe 0x01
-      pokeRead(c.io.mem, 1, 1) shouldBe 0x02
-      pokeRead(c.io.mem, 2, 1) shouldBe 0xfffffffbL
-      pokeRead(c.io.mem, 3, 1) shouldBe 0xfffffffaL
+      pokeRead(c.io.mem, 0, MemOp.LB) shouldBe 0x01
+      pokeRead(c.io.mem, 0, MemOp.LBU) shouldBe 0x01
+      pokeRead(c.io.mem, 1, MemOp.LB) shouldBe 0x02
+      pokeRead(c.io.mem, 1, MemOp.LBU) shouldBe 0x02
+      pokeRead(c.io.mem, 2, MemOp.LB) shouldBe 0xfffffffbL
+      pokeRead(c.io.mem, 2, MemOp.LBU) shouldBe 0xfb
+      pokeRead(c.io.mem, 3, MemOp.LB) shouldBe 0xfffffffaL
+      pokeRead(c.io.mem, 3, MemOp.LBU) shouldBe 0xfa
 
       c.clock.step()
       pokeWrite(c.io.mem, 4, 0xfcfd0304L)
       c.clock.step()
-      pokeRead(c.io.mem, 4, 2) shouldBe 0x0304
-      pokeRead(c.io.mem, 6, 2) shouldBe 0xfffffcfdL
+      pokeRead(c.io.mem, 4, MemOp.LH) shouldBe 0x0304
+      pokeRead(c.io.mem, 4, MemOp.LHU) shouldBe 0x0304
+      pokeRead(c.io.mem, 6, MemOp.LH) shouldBe 0xfffffcfdL
+      pokeRead(c.io.mem, 6, MemOp.LHU) shouldBe 0xfcfd
     }
   }
 }

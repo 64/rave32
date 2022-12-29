@@ -81,18 +81,43 @@ class OneCycleSpec
     }
   }
 
-  it should "handle jumps" in {
+  it should "handle jal" in {
     test(
-      new OneCycleSim(List(assemble("add x3, x0, x0"), assemble("jal x1, -4"))),
+      new OneCycleSim(
+        List(
+          assemble("add x0, x0, x0"),
+          assemble("jal x1, -4"),
+        ),
+      ),
     ) { c =>
       waitLoaded(c)
-      c.signals.halted.peekBoolean() shouldBe false
       c.test.pc.peekInt() shouldBe 0
       c.clock.step()
-      c.signals.halted.peekBoolean() shouldBe false
       c.test.pc.peekInt() shouldBe 4
       c.clock.step()
       c.test.pc.peekInt() shouldBe 0
+      peekReg(c, 1) shouldBe 8
+    }
+  }
+
+  it should "handle jalr" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("addi x3, x0, 8"),
+          assemble("jalr x1, x3, 4"),
+          assemble("addi x0, x0, 0"),
+          assemble("addi x0, x0, 0"),
+          assemble("addi x0, x0, 0"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.test.pc.peekInt() shouldBe 0
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 4
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 12
       peekReg(c, 1) shouldBe 8
     }
   }

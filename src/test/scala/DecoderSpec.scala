@@ -43,9 +43,107 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     }
   }
 
+  it should "decode ANDI" in {
+    test(new Decoder) { c =>
+      checkIType(c, "andi x1, x2, 3", AluOp.AND, 1, 2, 3)
+    }
+  }
+
+  it should "decode SRA" in {
+    test(new Decoder) { c =>
+      checkRType(c, "sra x1, x2, x3", AluOp.SRA, 1, 2, 3)
+    }
+  }
+
+  // See https://github.com/carlosedp/riscvassembler/issues/19.
+  // it should "decode SRAI" in {
+  //   test(new Decoder) { c =>
+  //     println(RISCVAssembler.binOutput("srai x0, x0, 0"))
+  //     checkIType(c, "srai x1, x2, 3", AluOp.SRA, 1, 2, 3)
+  //   }
+  // }
+
+  it should "decode SRL" in {
+    test(new Decoder) { c =>
+      checkRType(c, "srl x1, x2, x3", AluOp.SRL, 1, 2, 3)
+    }
+  }
+
+  it should "decode SRLI" in {
+    test(new Decoder) { c =>
+      checkIType(c, "srli x1, x2, 3", AluOp.SRL, 1, 2, 3)
+    }
+  }
+
+  it should "decode SLL" in {
+    test(new Decoder) { c =>
+      checkRType(c, "sll x1, x2, x3", AluOp.SLL, 1, 2, 3)
+    }
+  }
+
+  it should "decode SLLI" in {
+    test(new Decoder) { c =>
+      checkIType(c, "slli x1, x2, 3", AluOp.SLL, 1, 2, 3)
+    }
+  }
+
+  it should "decode SLT" in {
+    test(new Decoder) { c =>
+      checkRType(c, "slt x1, x2, x3", AluOp.SLT, 1, 2, 3)
+    }
+  }
+
+  it should "decode SLTU" in {
+    test(new Decoder) { c =>
+      checkRType(c, "sltu x1, x2, x3", AluOp.SLTU, 1, 2, 3)
+    }
+  }
+
+  it should "decode SLTIU" in {
+    test(new Decoder) { c =>
+      checkIType(c, "sltiu x1, x2, 3", AluOp.SLTU, 1, 2, 3)
+    }
+  }
+
+  it should "decode SLTI" in {
+    test(new Decoder) { c =>
+      checkIType(c, "slti x1, x2, 3", AluOp.SLT, 1, 2, 3)
+    }
+  }
+
+  it should "decode OR" in {
+    test(new Decoder) { c =>
+      checkRType(c, "or x1, x2, x3", AluOp.OR, 1, 2, 3)
+    }
+  }
+
+  it should "decode ORI" in {
+    test(new Decoder) { c =>
+      checkIType(c, "ori x1, x2, 3", AluOp.OR, 1, 2, 3)
+    }
+  }
+
+  it should "decode XOR" in {
+    test(new Decoder) { c =>
+      checkRType(c, "xor x1, x2, x3", AluOp.XOR, 1, 2, 3)
+    }
+  }
+
+  it should "decode XORI" in {
+    test(new Decoder) { c =>
+      checkIType(c, "xori x1, x2, 3", AluOp.XOR, 1, 2, 3)
+    }
+  }
+
   it should "decode JAL" in {
     test(new Decoder) { c =>
-      checkJType(c, "jal x1, 124", AluOp.ADD, 1, 124)
+      checkJType(c, "jal x1, 124", AluOp.ADD, SpecialOp.JAL, 1, 124)
+    }
+  }
+
+  it should "decode JALR" in {
+    test(new Decoder) { c =>
+      checkIType(c, "jalr x1, x2, 124", AluOp.ADD, 1, 2, 124, MemOp.NONE, SpecialOp.JALR)
     }
   }
 
@@ -55,9 +153,21 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     }
   }
 
+  it should "decode LBU" in {
+    test(new Decoder) { c =>
+      checkIType(c, "lbu x1, 124(x2)", AluOp.ADD, 1, 2, 124, MemOp.LBU)
+    }
+  }
+
   it should "decode LH" in {
     test(new Decoder) { c =>
       checkIType(c, "lh x1, 124(x2)", AluOp.ADD, 1, 2, 124, MemOp.LH)
+    }
+  }
+
+  it should "decode LHU" in {
+    test(new Decoder) { c =>
+      checkIType(c, "lhu x1, 124(x2)", AluOp.ADD, 1, 2, 124, MemOp.LHU)
     }
   }
 
@@ -91,9 +201,33 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     }
   }
 
+  it should "decode BNE" in {
+    test(new Decoder) { c =>
+      checkBType(c, "bne x1, x2, 124", AluOp.NE, 1, 2, 124)
+    }
+  }
+
   it should "decode BLT" in {
     test(new Decoder) { c =>
       checkBType(c, "blt x1, x2, 124", AluOp.LT, 1, 2, 124)
+    }
+  }
+
+  it should "decode BLTU" in {
+    test(new Decoder) { c =>
+      checkBType(c, "bltu x1, x2, 124", AluOp.LTU, 1, 2, 124)
+    }
+  }
+
+  it should "decode BGE" in {
+    test(new Decoder) { c =>
+      checkBType(c, "bge x1, x2, 124", AluOp.GE, 1, 2, 124)
+    }
+  }
+
+  it should "decode BGEU" in {
+    test(new Decoder) { c =>
+      checkBType(c, "bgeu x1, x2, 124", AluOp.GEU, 1, 2, 124)
     }
   }
 
@@ -163,7 +297,6 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe false
     c.io.ctrl.aluOp.peek() shouldBe aluOp
@@ -186,7 +319,6 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
@@ -201,17 +333,17 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       c: Decoder,
       inst: String,
       aluOp: AluOp.Type,
+      specialOp: SpecialOp.Type,
       rd: Int,
       imm: Int,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.isJump.peekBoolean() shouldBe true
     c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
-    c.io.ctrl.specialOp.peek() shouldBe SpecialOp.NONE
+    c.io.ctrl.specialOp.peek() shouldBe specialOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.imm.peekInt() shouldBe imm
   }
@@ -227,7 +359,6 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
@@ -247,7 +378,6 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.isBranch.peekBoolean() shouldBe true
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
@@ -268,7 +398,6 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
-    c.io.ctrl.isJump.peekBoolean() shouldBe false
     c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp

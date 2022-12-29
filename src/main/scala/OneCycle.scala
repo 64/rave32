@@ -60,13 +60,7 @@ class OneCycle extends Module {
   val pcPlus4   = pc + 4.U
   val pcPlusImm = pc + decoder.io.ctrl.imm.asUInt
   val nextPc    = Wire(UInt(32.W))
-  when(decoder.io.ctrl.isJump) {
-    nextPc := pcPlusImm
-
-    // Set link register
-    regFile.io.writeEnable := true.B
-    regFile.io.writeData   := pcPlus4
-  }.elsewhen(decoder.io.ctrl.isBranch) {
+  when(decoder.io.ctrl.isBranch) {
     alu.io.src1 := rs1Data
     alu.io.src2 := rs2Data
     when(alu.io.out === 0.U) {
@@ -74,6 +68,16 @@ class OneCycle extends Module {
     }.otherwise {
       nextPc := pcPlusImm
     }
+  }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.JAL) {
+    nextPc := pcPlusImm
+    regFile.io.writeEnable := true.B
+    regFile.io.writeData   := pcPlus4
+  }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.JALR) {
+    alu.io.src1 := rs1Data
+    alu.io.src2 := decoder.io.ctrl.imm.asUInt
+    nextPc := alu.io.out
+    regFile.io.writeEnable := true.B
+    regFile.io.writeData   := pcPlus4
   }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.AUIPC) {
     nextPc                 := pcPlus4
     regFile.io.writeEnable := true.B

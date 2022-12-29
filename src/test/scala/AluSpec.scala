@@ -52,8 +52,25 @@ class AluSpec extends AnyFlatSpec with ChiselScalatestTester {
     test(new Alu) { c => checkAluOp(c, AluOp.AND, 0 until 40, (x, y) => x & y) }
   }
 
-  it should "not" in {
-    test(new Alu) { c => checkAluOp(c, AluOp.NOT, 0 until 40, (x, y) => ~x) }
+  it should "or" in {
+    test(new Alu) { c => checkAluOp(c, AluOp.OR, 0 until 40, (x, y) => x | y) }
+  }
+
+  it should "xor" in {
+    test(new Alu) { c => checkAluOp(c, AluOp.XOR, 0 until 40, (x, y) => x ^ y) }
+  }
+
+  // This is not entirely correct
+  it should "sra" in {
+    test(new Alu) { c => checkAluOp(c, AluOp.SRA, 0 until 20, (x, y) => x >> y) }
+  }
+
+  it should "srl" in {
+    test(new Alu) { c => checkAluOp(c, AluOp.SRL, 0 until 20, (x, y) => x >> y) }
+  }
+
+  it should "sll" in {
+    test(new Alu) { c => checkAluOp(c, AluOp.SLL, 0 until 20, (x, y) => x << y) }
   }
 
   it should "eq" in {
@@ -69,14 +86,66 @@ class AluSpec extends AnyFlatSpec with ChiselScalatestTester {
     }
   }
 
+  it should "ne" in {
+    test(new Alu) { c =>
+      checkAluOp(
+        c,
+        AluOp.NE,
+        0 until 40,
+        (x, y) =>
+          if (x != y) { 1 }
+          else { 0 },
+      )
+    }
+  }
+
   it should "lt" in {
     test(new Alu) { c =>
       checkAluOp(
         c,
         AluOp.LT,
+        -20 until 20,
+        (x, y) =>
+          if (x < y) { 1 }
+          else { 0 },
+      )
+    }
+  }
+
+  it should "ltu" in {
+    test(new Alu) { c =>
+      checkAluOp(
+        c,
+        AluOp.LTU,
         0 until 40,
         (x, y) =>
           if (x < y) { 1 }
+          else { 0 },
+      )
+    }
+  }
+
+  it should "ge" in {
+    test(new Alu) { c =>
+      checkAluOp(
+        c,
+        AluOp.GE,
+        -20 until 20,
+        (x, y) =>
+          if (x >= y) { 1 }
+          else { 0 },
+      )
+    }
+  }
+
+  it should "geu" in {
+    test(new Alu) { c =>
+      checkAluOp(
+        c,
+        AluOp.GEU,
+        0 until 40,
+        (x, y) =>
+          if (x >= y) { 1 }
           else { 0 },
       )
     }
