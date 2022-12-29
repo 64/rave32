@@ -5,12 +5,12 @@ import chisel3.util._
 
 class Ctrl extends Bundle {
   val exception = Bool()
-  val aluOp = AluOp()
-  val memOp = MemOp()
-  val rs1 = UInt(4.W)
-  val rs2 = UInt(4.W)
-  val rd = UInt(4.W)
-  val imm = SInt(32.W)
+  val aluOp     = AluOp()
+  val memOp     = MemOp()
+  val rs1       = UInt(4.W)
+  val rs2       = UInt(4.W)
+  val rd        = UInt(4.W)
+  val imm       = SInt(32.W)
 
   val useImm = Bool()
   val isJump = Bool()
@@ -50,20 +50,20 @@ class Decoder extends Module {
 
   io.ctrl.exception := signals(0)
   val instFormat = signals(1)
-  io.ctrl.aluOp := signals(2)
-  io.ctrl.memOp := signals(3)
+  io.ctrl.aluOp  := signals(2)
+  io.ctrl.memOp  := signals(3)
   io.ctrl.isJump := signals(4)
 
-  io.ctrl.rd := io.inst(11, 7)
+  io.ctrl.rd  := io.inst(11, 7)
   io.ctrl.rs1 := io.inst(19, 15)
   io.ctrl.rs2 := io.inst(24, 20)
 
   // Decode immediate
   io.ctrl.useImm := false.B
-  io.ctrl.imm := DontCare
+  io.ctrl.imm    := DontCare
   switch(instFormat) {
     is(InstFormat.I) {
-      io.ctrl.imm := io.inst(31, 20).asSInt
+      io.ctrl.imm    := io.inst(31, 20).asSInt
       io.ctrl.useImm := true.B
     }
     is(InstFormat.J) {
