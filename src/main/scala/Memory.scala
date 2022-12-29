@@ -38,35 +38,40 @@ class Memory(words: Int = 8) extends Module {
 
   io.readData := DontCare
   when(io.memOp.isOneOf(Seq(MemOp.SB, MemOp.SH, MemOp.SW))) {
-    // This has to be a bit complicated to support sub-word writes. We do this
-    // by masking off the bytes we don't want to write to, and shifting the
-    // writeData by the appropriate amount to match the mask.
-    val lookup = MuxLookup(
-      io.memOp.asUInt,
-      0.U,
-      Seq(
-        MemOp.SB.asUInt -> "b0001".U,
-        MemOp.SH.asUInt -> "b0011".U,
-        MemOp.SW.asUInt -> "b1111".U,
-      ),
-    )
     val off  = io.addr(1, 0)
-    val mask = lookup.rotateLeft(off)
-
-    val shifted = WireInit(io.writeData.asTypeOf(Vec(4, UInt(8.W))))
-    when(off === 1.U) {
-      shifted(1) := io.writeData(7, 0)
-    }.elsewhen(off === 2.U) {
-      shifted(2) := io.writeData(7, 0)
-      shifted(3) := io.writeData(15, 8)
-    }.elsewhen(off === 3.U) {
-      shifted(3) := io.writeData(7, 0)
+    val next = WireInit(mem.read(io.addr >> 2))
+    switch(io.memOp) {
+      is(MemOp.SB) {
+        when(off === 0.U) {
+          next(0) := io.writeData(7, 0)
+        }.elsewhen(off === 1.U) {
+          next(1) := io.writeData(7, 0)
+        }.elsewhen(off === 2.U) {
+          next(2) := io.writeData(7, 0)
+        }.elsewhen(off === 3.U) {
+          next(3) := io.writeData(7, 0)
+        }
+      }
+      is(MemOp.SH) {
+        when(off === 0.U) {
+          next(0) := io.writeData(7, 0)
+          next(1) := io.writeData(15, 8)
+        }.elsewhen(off === 2.U) {
+          next(2) := io.writeData(7, 0)
+          next(3) := io.writeData(15, 8)
+        }
+      }
+      is(MemOp.SW) {
+        next(0) := io.writeData(7, 0)
+        next(1) := io.writeData(15, 8)
+        next(2) := io.writeData(23, 16)
+        next(3) := io.writeData(31, 24)
+      }
     }
 
     mem.write(
       io.addr >> 2,
-      shifted,
-      mask.asBools,
+      next,
     )
   }.elsewhen(io.memOp.isOneOf(Seq(MemOp.LB, MemOp.LH, MemOp.LW))) {
     // Read
