@@ -99,18 +99,58 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
   it should "decode AUIPC" in {
     test(new Decoder) { c =>
-      checkUType(c, "auipc x1, 0x123000", AluOp.NONE, SpecialOp.AUIPC, 1, 0x123 << 12)
+      checkUType(
+        c,
+        "auipc x1, 0x123000",
+        AluOp.NONE,
+        SpecialOp.AUIPC,
+        1,
+        0x123 << 12,
+      )
     }
   }
 
   it should "decode LUI" in {
     test(new Decoder) { c =>
-      checkUType(c, "lui x1, 0x123000", AluOp.NONE, SpecialOp.LUI, 1, 0x123 << 12)
+      checkUType(
+        c,
+        "lui x1, 0x123000",
+        AluOp.NONE,
+        SpecialOp.LUI,
+        1,
+        0x123 << 12,
+      )
+    }
+  }
+
+  it should "decode FENCE" in {
+    test(new Decoder) { c =>
+      checkIType(c, "fence", AluOp.NONE, 0, 0, 0, MemOp.NONE, SpecialOp.FENCE)
+    }
+  }
+
+  it should "decode EBREAK" in {
+    test(new Decoder) { c =>
+      checkIType(c, "ebreak", AluOp.NONE, 0, 0, 1, MemOp.NONE, SpecialOp.EBREAK)
+    }
+  }
+
+  it should "decode ECALL" in {
+    test(new Decoder) { c =>
+      checkIType(c, "ecall", AluOp.NONE, 0, 0, 0, MemOp.NONE, SpecialOp.ECALL)
     }
   }
 
   def assemble(in: String): UInt = {
-    ("b" + RISCVAssembler.binOutput(in)).U
+    if (in == "ebreak") {
+      "b00000000000100000000000001110011".U
+    } else if (in == "ecall") {
+      "b00000000000000000000000001110011".U
+    } else if (in == "fence") {
+      "b00000000000000000000000000001111".U
+    } else {
+      ("b" + RISCVAssembler.binOutput(in)).U
+    }
   }
 
   def checkRType(
@@ -142,6 +182,7 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       rs1: Int,
       imm: Int,
       memOp: MemOp.Type = MemOp.NONE,
+      specialOp: SpecialOp.Type = SpecialOp.NONE,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
@@ -150,7 +191,7 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
     c.io.ctrl.memOp.peek() shouldBe memOp
-    c.io.ctrl.specialOp.peek() shouldBe SpecialOp.NONE
+    c.io.ctrl.specialOp.peek() shouldBe specialOp
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.imm.peekInt() shouldBe imm

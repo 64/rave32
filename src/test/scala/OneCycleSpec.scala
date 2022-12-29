@@ -22,7 +22,16 @@ class OneCycleSpec
   }
 
   def assemble(in: String): Int = {
-    Integer.parseUnsignedInt(RISCVAssembler.binOutput(in), 2)
+    val s = if (in == "ebreak") {
+      "00000000000000000000000001110011"
+    } else if (in == "ecall") {
+      "00000000000100000000000001110011"
+    } else if (in == "fence") {
+      "00000000000000000000000000001111"
+    } else {
+      RISCVAssembler.binOutput(in)
+    }
+    Integer.parseUnsignedInt(s, 2)
   }
 
   def peekReg(c: OneCycleSim, reg: Int): BigInt = {
@@ -247,6 +256,28 @@ class OneCycleSpec
       c.test.pc.peekInt() shouldBe 16
       c.clock.step()
       c.test.pc.peekInt() shouldBe 20
+    }
+  }
+
+  it should "ignore ecall, ebreak and fence" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("fence"),
+          assemble("ecall"),
+          assemble("ebreak"),
+          assemble("add x0, x0, x0"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.test.pc.peekInt() shouldBe 0
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 4
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 8
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 12
     }
   }
 }

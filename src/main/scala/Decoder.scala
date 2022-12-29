@@ -9,6 +9,7 @@ object SpecialOp extends ChiselEnum {
   val AUIPC  = Value
   val EBREAK = Value
   val ECALL  = Value
+  val FENCE  = Value
   val LUI    = Value
 }
 
@@ -61,17 +62,20 @@ class Decoder extends Module {
       // Special
       Inst.AUIPC -> List(false.B, InstFormat.U, AluOp.NONE, MemOp.NONE, SpecialOp.AUIPC, false.B, false.B),
       Inst.LUI -> List(false.B, InstFormat.U, AluOp.NONE, MemOp.NONE, SpecialOp.LUI, false.B, false.B),
+      Inst.FENCE -> List(false.B, InstFormat.I, AluOp.NONE, MemOp.NONE, SpecialOp.FENCE, false.B, false.B),
+      Inst.ECALL -> List(false.B, InstFormat.I, AluOp.NONE, MemOp.NONE, SpecialOp.ECALL, false.B, false.B),
+      Inst.EBREAK -> List(false.B, InstFormat.I, AluOp.NONE, MemOp.NONE, SpecialOp.EBREAK, false.B, false.B),
     ),
   // format: on
   )
 
   io.ctrl.exception := signals(0)
   val instFormat = signals(1)
-  io.ctrl.aluOp    := signals(2)
-  io.ctrl.memOp    := signals(3)
+  io.ctrl.aluOp     := signals(2)
+  io.ctrl.memOp     := signals(3)
   io.ctrl.specialOp := signals(4)
-  io.ctrl.isJump   := signals(5)
-  io.ctrl.isBranch := signals(6)
+  io.ctrl.isJump    := signals(5)
+  io.ctrl.isBranch  := signals(6)
 
   io.ctrl.rd  := io.inst(11, 7)
   io.ctrl.rs1 := io.inst(19, 15)

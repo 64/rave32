@@ -82,6 +82,12 @@ class OneCycle extends Module {
     nextPc                 := pcPlus4
     regFile.io.writeEnable := true.B
     regFile.io.writeData   := decoder.io.ctrl.imm.asUInt
+  }.elsewhen(
+    decoder.io.ctrl.specialOp
+      .isOneOf(Seq(SpecialOp.FENCE, SpecialOp.EBREAK, SpecialOp.ECALL)),
+  ) {
+    // Ignore.
+    nextPc := pcPlus4
   }.otherwise {
     nextPc := pcPlus4
 
