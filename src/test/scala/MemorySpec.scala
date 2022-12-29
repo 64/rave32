@@ -15,13 +15,21 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   def pokeRead(c: MemoryPort, addr: Int, op: MemOp.Type = MemOp.LW): BigInt = {
     c.memOp.poke(op)
     c.addr.poke(addr.U)
+    c.misaligned.peekBoolean() shouldBe false
     c.readData.peekInt()
   }
 
   def pokeWrite(c: MemoryPort, addr: Int, value: Long, op: MemOp.Type = MemOp.SW) = {
     c.memOp.poke(op)
     c.addr.poke(addr.U)
+    c.misaligned.peekBoolean() shouldBe false
     c.writeData.poke(value.U)
+  }
+
+  def checkExcepts(c: MemoryPort, addr: Int, op: MemOp.Type) = {
+    c.memOp.poke(op)
+    c.addr.poke(addr.U)
+    c.misaligned.peekBoolean() shouldBe true
   }
 
   def waitDone(c: MemorySim) = {
@@ -128,6 +136,25 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       pokeRead(c.io.mem, 4, MemOp.LHU) shouldBe 0x0304
       pokeRead(c.io.mem, 6, MemOp.LH) shouldBe 0xfffffcfdL
       pokeRead(c.io.mem, 6, MemOp.LHU) shouldBe 0xfcfd
+    }
+  }
+
+  it should "not allow misaligned accesses" in {
+    test(new MemorySim(List(0, 0))) { c =>
+      waitDone(c)
+      checkExcepts(c.io.mem, 1, MemOp.LH)
+      checkExcepts(c.io.mem, 1, MemOp.LHU)
+      checkExcepts(c.io.mem, 3, MemOp.LH)
+      checkExcepts(c.io.mem, 3, MemOp.LHU)
+      checkExcepts(c.io.mem, 1, MemOp.SH)
+      checkExcepts(c.io.mem, 3, MemOp.SH)
+
+      checkExcepts(c.io.mem, 1, MemOp.LW)
+      checkExcepts(c.io.mem, 2, MemOp.LW)
+      checkExcepts(c.io.mem, 3, MemOp.LW)
+      checkExcepts(c.io.mem, 1, MemOp.SW)
+      checkExcepts(c.io.mem, 2, MemOp.SW)
+      checkExcepts(c.io.mem, 3, MemOp.SW)
     }
   }
 }

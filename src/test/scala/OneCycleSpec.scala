@@ -46,6 +46,26 @@ class OneCycleSpec
     }
   }
 
+  it should "halt on misaligned memory access" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("addi x1, x0, 2"),
+          assemble("jalr x0, x1, 0"),
+          assemble("add x0, x0, x0"),
+          assemble("add x0, x0, x0"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.signals.halted.peekBoolean() shouldBe false
+      c.clock.step()
+      c.signals.halted.peekBoolean() shouldBe false
+      c.clock.step()
+      c.signals.halted.peekBoolean() shouldBe true
+    }
+  }
+
   it should "keep asserting halt" in {
     test(new OneCycleSim(List(0, assemble("add x1, x2, x3"))))
       .withAnnotations(Seq(WriteVcdAnnotation)) { c =>

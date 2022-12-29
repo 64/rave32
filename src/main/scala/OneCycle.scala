@@ -45,7 +45,8 @@ class OneCycle extends Module {
   alu.io.src2 := DontCare
 
   val halted = RegNext(io.signals.halted, false.B)
-  io.signals.halted := decoder.io.ctrl.exception || halted
+  io.signals.halted := decoder.io.ctrl.exception || io.dmem.misaligned ||
+    io.imem.misaligned || halted
 
   regFile.io.rs1 := decoder.io.ctrl.rs1
   val rs1Data = regFile.io.rs1Data
@@ -69,13 +70,13 @@ class OneCycle extends Module {
       nextPc := pcPlusImm
     }
   }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.JAL) {
-    nextPc := pcPlusImm
+    nextPc                 := pcPlusImm
     regFile.io.writeEnable := true.B
     regFile.io.writeData   := pcPlus4
   }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.JALR) {
-    alu.io.src1 := rs1Data
-    alu.io.src2 := decoder.io.ctrl.imm.asUInt
-    nextPc := alu.io.out
+    alu.io.src1            := rs1Data
+    alu.io.src2            := decoder.io.ctrl.imm.asUInt
+    nextPc                 := Cat(alu.io.out(31, 1), 0.U)
     regFile.io.writeEnable := true.B
     regFile.io.writeData   := pcPlus4
   }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.AUIPC) {
