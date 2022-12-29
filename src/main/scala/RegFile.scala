@@ -7,23 +7,23 @@ class RegFile extends Module {
   val io = IO(new Bundle {
     val rs1 = Input(UInt(3.W))
     val rs2 = Input(UInt(3.W))
-    val rd = Input(UInt(3.W))
+    val rd  = Input(UInt(3.W))
 
     val writeEnable = Input(Bool())
-    val writeData = Input(UInt(32.W))
+    val writeData   = Input(UInt(32.W))
 
     val rs1Data = Output(UInt(32.W))
     val rs2Data = Output(UInt(32.W))
   })
 
   val test = IO(new Bundle {
-    val reg = Input(UInt(3.W))
+    val reg     = Input(UInt(3.W))
     val regData = Output(UInt(32.W))
   })
 
   val regs = Mem(16, UInt(32.W))
-  io.rs1Data := 0.U
-  io.rs2Data := 0.U
+  io.rs1Data   := 0.U
+  io.rs2Data   := 0.U
   test.regData := 0.U
 
   when(io.rs1 =/= 0.U) {

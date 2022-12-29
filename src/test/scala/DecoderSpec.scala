@@ -51,37 +51,61 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
 
   it should "decode LB" in {
     test(new Decoder) { c =>
-      checkIType(c, "lb x1, 124(x2)", AluOp.ADD, 1, 2, 124, 1)
+      checkIType(c, "lb x1, 124(x2)", AluOp.ADD, 1, 2, 124, MemOp.LB)
     }
   }
 
   it should "decode LH" in {
     test(new Decoder) { c =>
-      checkIType(c, "lh x1, 124(x2)", AluOp.ADD, 1, 2, 124, 2)
+      checkIType(c, "lh x1, 124(x2)", AluOp.ADD, 1, 2, 124, MemOp.LH)
     }
   }
 
   it should "decode LW" in {
     test(new Decoder) { c =>
-      checkIType(c, "lw x1, 124(x2)", AluOp.ADD, 1, 2, 124, 4)
+      checkIType(c, "lw x1, 124(x2)", AluOp.ADD, 1, 2, 124, MemOp.LW)
     }
   }
 
   it should "decode SB" in {
     test(new Decoder) { c =>
-      checkSType(c, "sb x1, 124(x2)", AluOp.ADD, 2, 1, 124, 1)
+      checkSType(c, "sb x1, 124(x2)", AluOp.ADD, 2, 1, 124, MemOp.SB)
     }
   }
 
   it should "decode SH" in {
     test(new Decoder) { c =>
-      checkSType(c, "sh x1, 124(x2)", AluOp.ADD, 2, 1, 124, 2)
+      checkSType(c, "sh x1, 124(x2)", AluOp.ADD, 2, 1, 124, MemOp.SH)
     }
   }
 
   it should "decode SW" in {
     test(new Decoder) { c =>
-      checkSType(c, "sw x1, 124(x2)", AluOp.ADD, 2, 1, 124, 4)
+      checkSType(c, "sw x1, 124(x2)", AluOp.ADD, 2, 1, 124, MemOp.SW)
+    }
+  }
+
+  it should "decode BEQ" in {
+    test(new Decoder) { c =>
+      checkBType(c, "beq x1, x2, 124", AluOp.EQ, 1, 2, 124)
+    }
+  }
+
+  it should "decode BLT" in {
+    test(new Decoder) { c =>
+      checkBType(c, "blt x1, x2, 124", AluOp.LT, 1, 2, 124)
+    }
+  }
+
+  it should "decode AUIPC" in {
+    test(new Decoder) { c =>
+      checkUType(c, "auipc x1, 0x123000", AluOp.NONE, SpecialOp.AUIPC, 1, 0x123 << 12)
+    }
+  }
+
+  it should "decode LUI" in {
+    test(new Decoder) { c =>
+      checkUType(c, "lui x1, 0x123000", AluOp.NONE, SpecialOp.LUI, 1, 0x123 << 12)
     }
   }
 
@@ -100,9 +124,11 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe false
-    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
     c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
+    c.io.ctrl.specialOp.peek() shouldBe SpecialOp.NONE
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.rs2.peekInt() shouldBe rs2
@@ -115,24 +141,19 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       rd: Int,
       rs1: Int,
       imm: Int,
-      accessSize: Int = 0,
+      memOp: MemOp.Type = MemOp.NONE,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.memOp.peek() shouldBe memOp
+    c.io.ctrl.specialOp.peek() shouldBe SpecialOp.NONE
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.imm.peekInt() shouldBe imm
-
-    if (accessSize == 4) {
-      c.io.ctrl.memOp.peek() shouldBe MemOp.LW
-    } else if(accessSize == 2) {
-      c.io.ctrl.memOp.peek() shouldBe MemOp.LH
-    } else if (accessSize == 1) {
-      c.io.ctrl.memOp.peek() shouldBe MemOp.LB
-    }
   }
 
   def checkJType(
@@ -145,9 +166,11 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe true
+    c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
-    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
     c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
+    c.io.ctrl.specialOp.peek() shouldBe SpecialOp.NONE
     c.io.ctrl.rd.peekInt() shouldBe rd
     c.io.ctrl.imm.peekInt() shouldBe imm
   }
@@ -159,23 +182,58 @@ class DecoderSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       rs1: Int,
       rs2: Int,
       offset: Int,
-      accessSize: Int,
+      memOp: MemOp.Type = MemOp.NONE,
   ) = {
     c.io.inst.poke(assemble(inst))
     c.io.ctrl.exception.peekBoolean() shouldBe false
     c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.isBranch.peekBoolean() shouldBe false
     c.io.ctrl.useImm.peekBoolean() shouldBe true
     c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.memOp.peek() shouldBe memOp
     c.io.ctrl.rs1.peekInt() shouldBe rs1
     c.io.ctrl.rs2.peekInt() shouldBe rs2
     c.io.ctrl.imm.peekInt() shouldBe offset
+  }
 
-    if (accessSize == 4) {
-      c.io.ctrl.memOp.peek() shouldBe MemOp.SW
-    } else if(accessSize == 2) {
-      c.io.ctrl.memOp.peek() shouldBe MemOp.SH
-    } else if (accessSize == 1) {
-      c.io.ctrl.memOp.peek() shouldBe MemOp.SB
-    }
+  def checkBType(
+      c: Decoder,
+      inst: String,
+      aluOp: AluOp.Type,
+      rs1: Int,
+      rs2: Int,
+      offset: Int,
+  ) = {
+    c.io.inst.poke(assemble(inst))
+    c.io.ctrl.exception.peekBoolean() shouldBe false
+    c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.isBranch.peekBoolean() shouldBe true
+    c.io.ctrl.useImm.peekBoolean() shouldBe true
+    c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
+    c.io.ctrl.specialOp.peek() shouldBe SpecialOp.NONE
+    c.io.ctrl.rs1.peekInt() shouldBe rs1
+    c.io.ctrl.rs2.peekInt() shouldBe rs2
+    c.io.ctrl.imm.peekInt() shouldBe offset
+  }
+
+  def checkUType(
+      c: Decoder,
+      inst: String,
+      aluOp: AluOp.Type,
+      specialOp: SpecialOp.Type,
+      rd: Int,
+      imm: Int,
+  ) = {
+    c.io.inst.poke(assemble(inst))
+    c.io.ctrl.exception.peekBoolean() shouldBe false
+    c.io.ctrl.isJump.peekBoolean() shouldBe false
+    c.io.ctrl.isBranch.peekBoolean() shouldBe false
+    c.io.ctrl.useImm.peekBoolean() shouldBe true
+    c.io.ctrl.aluOp.peek() shouldBe aluOp
+    c.io.ctrl.memOp.peek() shouldBe MemOp.NONE
+    c.io.ctrl.specialOp.peek() shouldBe specialOp
+    c.io.ctrl.rd.peekInt() shouldBe rd
+    c.io.ctrl.imm.peekInt() shouldBe imm
   }
 }

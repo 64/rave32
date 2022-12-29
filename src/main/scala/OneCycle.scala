@@ -40,7 +40,9 @@ class OneCycle extends Module {
   io.dmem.memOp   := decoder.io.ctrl.memOp
 
   val alu = Module(new Alu)
-  alu.io.op := decoder.io.ctrl.aluOp
+  alu.io.op   := decoder.io.ctrl.aluOp
+  alu.io.src1 := DontCare
+  alu.io.src2 := DontCare
 
   val halted = RegNext(io.signals.halted, false.B)
   io.signals.halted := decoder.io.ctrl.exception || halted
@@ -55,18 +57,33 @@ class OneCycle extends Module {
   regFile.io.writeEnable := false.B
   regFile.io.writeData   := DontCare
 
-  val nextPc = Wire(UInt(32.W))
+  val pcPlus4   = pc + 4.U
+  val pcPlusImm = pc + decoder.io.ctrl.imm.asUInt
+  val nextPc    = Wire(UInt(32.W))
   when(decoder.io.ctrl.isJump) {
-    // Jump to pc + imm
-    alu.io.src1 := pc
-    alu.io.src2 := decoder.io.ctrl.imm.asUInt()
-    nextPc      := alu.io.out
+    nextPc := pcPlusImm
 
     // Set link register
     regFile.io.writeEnable := true.B
-    regFile.io.writeData   := pc + 4.U
+    regFile.io.writeData   := pcPlus4
+  }.elsewhen(decoder.io.ctrl.isBranch) {
+    alu.io.src1 := rs1Data
+    alu.io.src2 := rs2Data
+    when(alu.io.out === 0.U) {
+      nextPc := pcPlus4
+    }.otherwise {
+      nextPc := pcPlusImm
+    }
+  }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.AUIPC) {
+    nextPc                 := pcPlus4
+    regFile.io.writeEnable := true.B
+    regFile.io.writeData   := pcPlusImm
+  }.elsewhen(decoder.io.ctrl.specialOp === SpecialOp.LUI) {
+    nextPc                 := pcPlus4
+    regFile.io.writeEnable := true.B
+    regFile.io.writeData   := decoder.io.ctrl.imm.asUInt
   }.otherwise {
-    nextPc := pc + 4.U
+    nextPc := pcPlus4
 
     alu.io.src1 := rs1Data
     when(decoder.io.ctrl.useImm) {
@@ -105,7 +122,6 @@ class OneCycle extends Module {
 class OneCycleSim(init: List[Int] = List()) extends Module {
   val signals = IO(Output(new CpuSignals))
 
-  // val dmem = Module(new MemorySim(List(), 32))
   val dmem = IO(new MemoryPort)
   val imem = Module(new MemorySim(init))
   val core = Module(new OneCycle)

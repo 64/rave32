@@ -164,4 +164,89 @@ class OneCycleSpec
       peekReg(c, 2) shouldBe 5
     }
   }
+
+  it should "handle auipc" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("auipc x1, 0x1000"),
+          assemble("auipc x2, 0x123000"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.clock.step()
+      peekReg(c, 1) shouldBe 0x1000
+      c.clock.step()
+      peekReg(c, 2) shouldBe 0x123004
+    }
+  }
+
+  it should "handle lui" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("lui x1, 0x1000"),
+          assemble("lui x2, 0x123000"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.clock.step()
+      peekReg(c, 1) shouldBe 0x1000
+      c.clock.step()
+      peekReg(c, 2) shouldBe 0x123000
+    }
+  }
+
+  it should "handle backwards conditional branches" in {
+    // Backward branches
+    test(
+      new OneCycleSim(
+        List(
+          assemble("addi x1, x0, 1"),
+          assemble("beq x1, x0, -4"),
+          assemble("beq x1, x1, -8"),
+          assemble("add x0, x0, x0"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.test.pc.peekInt() shouldBe 0
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 4
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 8
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 0
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 4
+    }
+  }
+
+  it should "handle forwards conditional branches" in {
+    test(
+      new OneCycleSim(
+        List(
+          assemble("addi x1, x0, 1"),
+          assemble("blt x0, x1, 4"),
+          assemble("blt x0, x1, 8"),
+          assemble("add x0, x0, x0"),
+          assemble("add x0, x0, x0"),
+          assemble("add x0, x0, x0"),
+        ),
+      ),
+    ) { c =>
+      waitLoaded(c)
+      c.test.pc.peekInt() shouldBe 0
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 4
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 8
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 16
+      c.clock.step()
+      c.test.pc.peekInt() shouldBe 20
+    }
+  }
 }

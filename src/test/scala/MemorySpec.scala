@@ -91,7 +91,7 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       waitDone(c)
 
       var next = 0x12
-      var exp = next
+      var exp  = next
       pokeWrite(c.io.mem, 0, next, 1)
       c.clock.step()
       pokeRead(c.io.mem, 0) shouldBe exp
@@ -126,7 +126,6 @@ class MemorySpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
       pokeRead(c.io.mem, 1, 1) shouldBe 0x02
       pokeRead(c.io.mem, 2, 1) shouldBe 0xfffffffbL
       pokeRead(c.io.mem, 3, 1) shouldBe 0xfffffffaL
-
 
       c.clock.step()
       pokeWrite(c.io.mem, 4, 0xfcfd0304L)

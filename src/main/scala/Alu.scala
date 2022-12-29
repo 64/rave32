@@ -6,26 +6,26 @@ import chisel3.experimental.ChiselEnum
 
 object AluOp extends ChiselEnum {
   val NONE = Value
-  val ADD = Value
-  val AND = Value
-  val EQ = Value
-  val GE = Value
-  val GEU = Value
-  val LT = Value
-  val LTU = Value
-  val NEQ = Value
-  val NOT = Value
-  val OR = Value
-  val SUB = Value
-  val XOR = Value
+  val ADD  = Value
+  val AND  = Value
+  val EQ   = Value
+  val GE   = Value
+  val GEU  = Value
+  val LT   = Value
+  val LTU  = Value
+  val NEQ  = Value
+  val NOT  = Value
+  val OR   = Value
+  val SUB  = Value
+  val XOR  = Value
 }
 
 class Alu extends Module {
   val io = IO(new Bundle {
-    val op = Input(AluOp())
+    val op   = Input(AluOp())
     val src1 = Input(UInt(32.W))
     val src2 = Input(UInt(32.W))
-    val out = Output(UInt(32.W))
+    val out  = Output(UInt(32.W))
   })
 
   io.out := 0.U
@@ -41,6 +41,12 @@ class Alu extends Module {
     }
     is(AluOp.NOT) {
       io.out := ~io.src1
+    }
+    is(AluOp.EQ) {
+      io.out := io.src1 === io.src2
+    }
+    is(AluOp.LT) {
+      io.out := io.src1 < io.src2
     }
   }
 }
